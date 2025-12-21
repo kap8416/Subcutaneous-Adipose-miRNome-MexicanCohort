@@ -18,8 +18,9 @@ Participants were stratified into two phenotypic groups based on insulin status:
 Insulin resistance was defined using the HOMA-IR index. Subcutaneous adipose tissue biopsies were obtained, followed by total RNA extraction and miRNA sequencing. Downstream analyses integrate molecular and clinical data to assess both mechanistic associations and predictive potential of miRNA expression profiles.
 
 
+<img width="893" height="539" alt="Screenshot 2025-12-21 at 12 56 39 AM" src="https://github.com/user-attachments/assets/69af84e2-8d1f-4a80-be00-8807b1200f3f" />
 
-<img width="1390" height="927" alt="Screenshot 2025-12-21 at 12 39 19 AM" src="https://github.com/user-attachments/assets/8c5cd538-fcd6-4f18-8c37-09afd0d98bf9" />
+
 
 
 
@@ -56,6 +57,9 @@ flowchart TD
 ```
 The complete analytical workflow implemented in this repository is summarized in the following pipeline diagram, illustrating data flow from raw miRNA expression matrices to systems-level network analysis and predictive modeling.
 
+## Repository Content Index
+
+```text
 Subcutaneous-Adipose-miRNome-MexicanCohort/
 │
 ├── INPUTS_DE-miRNAs/
@@ -81,17 +85,17 @@ Subcutaneous-Adipose-miRNome-MexicanCohort/
 │   └── Python script for miRNA–target regulatory
 │       network construction and analysis
 │
-├── (Predictive_Modeling_*.Rmd)
+├── Predictive_Modeling_*.Rmd
 │   └── R Markdown scripts implementing supervised
 │       predictive modeling approaches
 │
-├── (Predictive_Modeling_*.html)
+├── Predictive_Modeling_*.html
 │   └── Rendered HTML reports for predictive modeling analyses
 │
 └── README.md
     └── Project description, analytical workflow,
         and reproducibility documentation
-
+```
 
 ### 1. Differential Expression and Clinical Correlation Analysis
 
