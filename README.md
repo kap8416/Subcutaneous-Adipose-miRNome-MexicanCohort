@@ -17,11 +17,81 @@ Participants were stratified into two phenotypic groups based on insulin status:
 
 Insulin resistance was defined using the HOMA-IR index. Subcutaneous adipose tissue biopsies were obtained, followed by total RNA extraction and miRNA sequencing. Downstream analyses integrate molecular and clinical data to assess both mechanistic associations and predictive potential of miRNA expression profiles.
 
+
+
+<img width="1390" height="927" alt="Screenshot 2025-12-21 at 12 39 19 AM" src="https://github.com/user-attachments/assets/8c5cd538-fcd6-4f18-8c37-09afd0d98bf9" />
+
+
+
+
 ---
 
 ## Repository Structure and Analytical Workflow
 
 The repository is organized according to the main analytical stages of the study. Each stage is structured with clearly defined input, script, and output directories to ensure transparency and reproducibility.
+
+## Analytical Pipeline Overview
+#
+
+```mermaid
+flowchart TD
+    A[Subcutaneous Adipose Tissue Biopsies] --> B[miRNA Sequencing]
+    B --> C[miRNA Count Matrices]
+
+    C --> D[Differential Expression Analysis]
+    D --> E[Clinical & Metabolic Correlations]
+    E --> F[DE miRNA Signatures]
+
+    F --> G[miRNA–Target Prediction Data]
+    G --> H[Regulatory Network Construction]
+
+    F --> I[Predictive Modeling]
+    E --> I
+    H --> J[Network Metrics & Interaction Tables]
+    I --> K[Model Performance & Classification Results]
+
+    D --> L[HTML & Markdown Reports]
+    I --> L
+
+```
+The complete analytical workflow implemented in this repository is summarized in the following pipeline diagram, illustrating data flow from raw miRNA expression matrices to systems-level network analysis and predictive modeling.
+
+Subcutaneous-Adipose-miRNome-MexicanCohort/
+│
+├── INPUTS_DE-miRNAs/
+│   └── miRNA count matrices and metadata used for
+│       differential expression and clinical correlation analyses
+│
+├── INPUTSmiRNAs-targetsNetworks/
+│   └── miRNA–target prediction datasets used for
+│       regulatory network reconstruction
+│
+├── OUTPUTSmiRNA-targetNets/
+│   └── Generated miRNA–target interaction networks,
+│       tables, and network-level metrics
+│
+├── miRNA_analysis_pipeline.Rmd
+│   └── R Markdown script for miRNA differential expression,
+│       multivariate exploration, and clinical correlation analyses
+│
+├── miRNA_analysis_pipeline.html
+│   └── Rendered HTML report of the miRNA analysis pipeline
+│
+├── miRNAs-targetNETs.py
+│   └── Python script for miRNA–target regulatory
+│       network construction and analysis
+│
+├── (Predictive_Modeling_*.Rmd)
+│   └── R Markdown scripts implementing supervised
+│       predictive modeling approaches
+│
+├── (Predictive_Modeling_*.html)
+│   └── Rendered HTML reports for predictive modeling analyses
+│
+└── README.md
+    └── Project description, analytical workflow,
+        and reproducibility documentation
+
 
 ### 1. Differential Expression and Clinical Correlation Analysis
 
