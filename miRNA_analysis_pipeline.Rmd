@@ -1,0 +1,523 @@
+---
+title: "Integrated miRNA-seq and Clinical Data Analysis Pipeline"
+subtitle: "Differential Expression, Multivariate Analyses, and Clinical Associations"
+author: "Katia Aviña Padilla"
+date: "December 20, 2025"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+# Overview
+
+This R Markdown document presents a comprehensive and reproducible analytical pipeline integrating miRNA sequencing (miRNA-seq) data with clinical, anthropometric, metabolic, and inflammatory variables. The workflow is designed to systematically identify differentially expressed miRNAs associated with insulin resistance and to explore their relationships with relevant clinical traits using multivariate and statistical approaches.
+
+Specifically, this pipeline performs:
+	•	Differential expression analysis of miRNAs using DESeq2, including appropriate normalization, dispersion estimation, and multiple testing correction.
+	•	Visualization of expression patterns through volcano plots, principal component analysis (PCA), and heatmaps based on variance-stabilized expression data.
+	•	Generation of structured clinical, metabolic, and inflammatory summary tables using gtsummary and gt, enabling transparent comparison between phenotypic groups.
+	•	Multivariate exploration of clinical, anthropometric, and inflammatory variables using PCA, with extraction and interpretation of variable contributions to principal components.
+	•	Correlation analysis among selected miRNAs (including top differentially expressed candidates) using Pearson correlation, visualized through correlation matrices and heatmaps.
+	•	Linear regression analyses to investigate associations between miRNA expression levels and key clinical or biochemical parameters.
+
+Overall, this pipeline provides an integrated framework for linking miRNA regulatory signatures to metabolic and inflammatory phenotypes, facilitating biologically meaningful interpretation and supporting downstream mechanistic or translational studies.
+
+⸻
+
+
+# Load libraries
+
+```{r libraries}
+library(DESeq2)
+library(ggplot2)
+library(pheatmap)
+library(tidyverse)
+library(readxl)
+library(gt)
+library(gtsummary)
+library(ggpubr)
+library(cowplot)
+library(factoextra)
+library(matrixStats)
+library(corrplot)
+library(reshape2)
+library(ggpmisc)
+library(Hmisc)
+library(broom)
+```
+
+# Differential Expression Analysis (DESeq2)
+
+```{r load_data}
+project_dir <- "/Users/katiaavinapadilla/Desktop/miRNAs PROJECT/"
+setwd(project_dir)
+
+counts_df <- read.csv("miRNAsvariable2.csv", row.names = 1)
+metadata  <- read.csv("metadata.csv", row.names = 1)
+
+counts_df <- counts_df[!duplicated(rownames(counts_df)), ]
+counts_matrix <- as.matrix(counts_df)
+
+colnames(counts_matrix) <- gsub(" ", "_", colnames(counts_matrix))
+rownames(metadata) <- gsub(" ", "_", rownames(metadata))
+metadata <- metadata[colnames(counts_matrix), , drop = FALSE]
+
+metadata$condition <- as.factor(metadata$condition)
+```
+
+```{r deseq2}
+dds <- DESeqDataSetFromMatrix(
+  countData = counts_matrix,
+  colData = metadata,
+  design = ~ condition
+)
+
+dds <- dds[rowSums(counts(dds)) > 10, ]
+dds <- DESeq(dds)
+
+res <- results(dds)
+res <- res[order(res$padj), ]
+write.csv(as.data.frame(res), "miRNAs_expression_results.csv")
+```
+
+# Volcano Plot
+
+```{r volcano, fig.width=8, fig.height=6}
+library(dplyr)
+library(ggplot2)
+
+# Prepare volcano data (FULL results, no filtering)
+volcano_data <- as.data.frame(res)
+volcano_data$miRNA <- rownames(volcano_data)
+
+# Define thresholds
+volcano_data <- volcano_data %>%
+  mutate(
+    threshold = case_when(
+      log2FoldChange > 1  & padj < 0.05 ~ "UP",
+      log2FoldChange < -1 & padj < 0.05 ~ "DOWN",
+      TRUE ~ "NS"
+    )
+  )
+
+# Select top 5 UP and top 5 DOWN for labeling
+top_up <- volcano_data %>%
+  filter(threshold == "UP") %>%
+  arrange(desc(log2FoldChange)) %>%
+  slice_head(n = 5)
+
+top_down <- volcano_data %>%
+  filter(threshold == "DOWN") %>%
+  arrange(log2FoldChange) %>%
+  slice_head(n = 5)
+
+top_miRNAs <- bind_rows(top_up, top_down)
+
+# Volcano plot
+ggplot(volcano_data,
+       aes(x = log2FoldChange, y = -log10(pvalue), color = threshold)) +
+  geom_point(alpha = 0.7, size = 1.8) +
+  scale_color_manual(
+    values = c(
+      "UP" = "red",
+      "DOWN" = "blue",
+      "NS" = "grey70"
+    )
+  ) +
+  geom_text(
+    data = top_miRNAs,
+    aes(label = miRNA),
+    vjust = -0.8,
+    size = 3,
+    show.legend = FALSE
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Volcano plot of differentially expressed miRNAs",
+    x = "log2 Fold Change",
+    y = "-log10(p-value)",
+    color = "Expression"
+  )
+```
+
+```{r pie_chart_all_categories, fig.width=6, fig.height=6}
+library(dplyr)
+library(ggplot2)
+
+volcano_data <- as.data.frame(res)
+volcano_data$miRNA <- rownames(volcano_data)
+
+# Define categories (includes NS)
+volcano_data <- volcano_data %>%
+  mutate(
+    category = case_when(
+      log2FoldChange > 1  & padj < 0.05 ~ "UP",
+      log2FoldChange < -1 & padj < 0.05 ~ "DOWN",
+      TRUE ~ "NS"   # change to "NC" if you prefer
+    )
+  )
+
+# Count categories (robust, no count())
+pie_all <- volcano_data %>%
+  group_by(category) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  mutate(
+    fraction  = n / sum(n),
+    ymax      = cumsum(fraction),
+    ymin      = lag(ymax, default = 0),
+    label_pos = (ymax + ymin) / 2,
+    label     = paste0(category, "\n", n, " (", round(fraction*100, 1), "%)")
+  )
+
+ggplot(pie_all, aes(x = 1, y = fraction, fill = category)) +
+  geom_col(width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(values = c("UP"="red", "DOWN"="blue", "NS"="grey70")) +
+  geom_segment(aes(x = 1, xend = 1.2, y = label_pos, yend = label_pos), color = "black") +
+  geom_text(aes(x = 1.35, y = label_pos, label = label), hjust = 0, size = 4) +
+  xlim(0.5, 1.65) +
+  theme_void() +
+  labs(title = "miRNA categories (padj < 0.05 & |log2FC| > 1)")
+
+```
+
+# PCA and Heatmap
+
+```{r pca_heatmap}
+vsd <- varianceStabilizingTransformation(dds, blind = FALSE)
+
+pca <- prcomp(t(assay(vsd)))
+pca_df <- data.frame(PC1 = pca$x[,1], PC2 = pca$x[,2], condition = metadata$condition)
+
+ggplot(pca_df, aes(PC1, PC2, color = condition)) +
+  geom_point(size = 3) +
+  theme_minimal()
+
+top_var <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 50)
+pheatmap(assay(vsd)[top_var, ], scale = "row")
+```
+
+# Clinical Data Integration
+
+```{r clinical_data}
+data <- read_excel("Reorganized_BASE_miRNAs.xlsx")
+data <- as.data.frame(data)
+
+data <- data %>%
+  mutate(
+    Insulin_resistance = recode(miRNA_Group_2, `0` = "Insulin sensitivity", `1` = "Insulin resistance")
+  )
+```
+
+# Correlations and Regressions
+
+```{r correlations_top10_from_vsd_updated, message=FALSE, warning=FALSE}
+library(dplyr)
+library(tibble)
+library(DESeq2)
+library(corrplot)
+library(reshape2)
+library(ggplot2)
+
+# --- 1) Build DESeq2 results table ---
+res_tbl <- as.data.frame(res) %>%
+  rownames_to_column("miRNA") %>%
+  filter(!is.na(padj), !is.na(log2FoldChange))
+
+# --- 2) TOP 5 UP (padj < 0.05 & log2FC > 1), ranked by largest effect ---
+top_up <- res_tbl %>%
+  filter(padj < 0.05, log2FoldChange > 1) %>%
+  arrange(desc(log2FoldChange), padj) %>%
+  slice_head(n = 5) %>%
+  pull(miRNA)
+
+# --- 3) TOP 5 DOWN (padj < 0.05 & log2FC < -1), ranked by most negative effect ---
+top_down <- res_tbl %>%
+  filter(padj < 0.05, log2FoldChange < -1) %>%
+  arrange(log2FoldChange, padj) %>%   # most negative first
+  slice_head(n = 5) %>%
+  pull(miRNA)
+
+top10 <- c(top_up, top_down)
+
+# Print (knit-friendly)
+list(top_up = top_up, top_down = top_down)
+
+# --- 4) Ensure VST object exists ---
+if (!exists("vsd")) {
+  vsd <- varianceStabilizingTransformation(dds, blind = FALSE)
+}
+vsd_mat <- assay(vsd)  # rows = miRNAs, cols = samples
+
+# --- 5) Keep only miRNAs that exist in the VST matrix ---
+present <- intersect(top10, rownames(vsd_mat))
+missing <- setdiff(top10, present)
+if (length(missing) > 0) {
+  message("Top10 miRNAs missing in VST matrix and will be skipped: ",
+          paste(missing, collapse = ", "))
+}
+if (length(present) < 3) {
+  stop("Too few Top10 miRNAs were found in VST matrix (found ",
+       length(present), "). Cannot compute a meaningful correlation heatmap.")
+}
+
+expr_top10 <- t(vsd_mat[present, , drop = FALSE])  # rows = samples, cols = miRNAs
+
+# --- 6) Correlation matrix ---
+cor_matrix <- cor(expr_top10, use = "pairwise.complete.obs", method = "pearson")
+
+# --- 7) corrplot ---
+corrplot(cor_matrix, method = "circle", type = "upper", tl.cex = 0.8)
+
+# --- 8) ggplot heatmap ---
+melted <- reshape2::melt(cor_matrix)
+
+ggplot(melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(
+    low = "blue", mid = "white", high = "red",
+    midpoint = 0, limits = c(-1, 1),
+    name = "Correlation"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 9),
+    axis.text.y = element_text(size = 9),
+    plot.title = element_text(hjust = 0.5)
+  ) +
+  coord_fixed() +
+  labs(
+    title = "Correlation Heatmap (Top 5 UP + Top 5 DOWN)",
+    x = "", y = ""
+  )
+```
+```{r reload_df, message=FALSE, warning=FALSE}
+library(readxl)
+library(dplyr)
+
+# Check what 'data' is right now (optional)
+print(class(data))
+
+# Reload the dataset into a NEW object to avoid name collisions
+df <- read_excel("Reorganized_BASE_miRNAs.xlsx") |> as.data.frame()
+
+# If you need recoding again (adapt as needed)
+df <- df %>%
+  mutate(
+    Insulin_resistance = dplyr::recode(miRNA_Group_2, `0` = "Insulin sensitivity", `1` = "Insulin resistance")
+  )
+
+stopifnot(is.data.frame(df))
+```
+
+```{r pca_blocks, message=FALSE, warning=FALSE}
+# If needed (run once, not every time)
+# install.packages("factoextra")
+
+library(factoextra)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# Safety checks
+stopifnot(exists("df"))
+stopifnot(is.data.frame(df))
+
+# Convert selected columns to numeric safely
+num_cols <- c(
+  "Glucose","Insulin_2","HOMA_IR","Glucagon","GIP","GLP_1","C_Peptide",
+  "Total_Cholesterol","Triglycerides","HDL_C","LDL_C","Apo_A","Apo_B",
+  "Creatinine","Uric_Acid","ALT","AST","GGT","ALP",
+  "BMI","Weight","Height","WHR","Arm_Circumference_BI","Fat_BI",
+  "Lean_Mass_BI","Muscle_Mass_BI","Fat_Percentage_BI",
+  "Lean_Mass_Percentage_BI","Muscle_Mass_Percentage_BI",
+  "CRP","IL_1B","IL_6","IL_10","TNF_a","PAI_1","MCP_1","Resistin","Vaspin"
+)
+
+# Keep only columns that actually exist in your dataset (prevents errors)
+num_cols <- intersect(num_cols, colnames(df))
+
+data2 <- df %>%
+  dplyr::mutate(dplyr::across(dplyr::all_of(num_cols), ~ as.numeric(as.character(.))))
+
+data_clean <- data2 %>% tidyr::drop_na()
+
+clinical_vars <- data_clean %>%
+  dplyr::select(dplyr::all_of(c(
+    "Glucose","Insulin_2","HOMA_IR","Glucagon","GIP","GLP_1","C_Peptide",
+    "Total_Cholesterol","Triglycerides","HDL_C","LDL_C","Apo_A","Apo_B",
+    "Creatinine","Uric_Acid","ALT","AST","GGT","ALP"
+  )))
+
+anthropometric_vars <- data_clean %>%
+  dplyr::select(dplyr::all_of(c(
+    "BMI","Weight","Height","WHR","Arm_Circumference_BI","Fat_BI",
+    "Lean_Mass_BI","Muscle_Mass_BI","Fat_Percentage_BI",
+    "Lean_Mass_Percentage_BI","Muscle_Mass_Percentage_BI"
+  )))
+
+inflammatory_vars <- data_clean %>%
+  dplyr::select(dplyr::all_of(c(
+    "CRP","IL_1B","IL_6","IL_10","TNF_a","PAI_1","MCP_1","Resistin","Vaspin"
+  )))
+
+# PCA + variable contribution plots
+pca_clinical <- prcomp(clinical_vars, scale. = TRUE)
+fviz_pca_var(pca_clinical, col.var = "contrib", repel = TRUE) +
+  labs(title = "PCA - Clinical Variables")
+
+pca_anthropometric <- prcomp(anthropometric_vars, scale. = TRUE)
+fviz_pca_var(pca_anthropometric, col.var = "contrib", repel = TRUE) +
+  labs(title = "PCA - Anthropometric Variables")
+
+pca_inflammatory <- prcomp(inflammatory_vars, scale. = TRUE)
+fviz_pca_var(pca_inflammatory, col.var = "contrib", repel = TRUE) +
+  labs(title = "PCA - Inflammatory Variables")
+
+# Extract contributions
+contrib_clinical <- factoextra::get_pca_var(pca_clinical)$contrib
+contrib_anthropometric <- factoextra::get_pca_var(pca_anthropometric)$contrib
+contrib_inflammatory <- factoextra::get_pca_var(pca_inflammatory)$contrib
+
+# Top contributions in PC1
+cat("Top PC1 contributions - Clinical variables\n")
+print(sort(contrib_clinical[,1], decreasing = TRUE))
+
+cat("\nTop PC1 contributions - Anthropometric variables\n")
+print(sort(contrib_anthropometric[,1], decreasing = TRUE))
+
+cat("\nTop PC1 contributions - Inflammatory variables\n")
+print(sort(contrib_inflammatory[,1], decreasing = TRUE))
+
+library(ggplot2)
+library(corrplot)
+library(reshape2)
+   selected_vars <- data_clean %>%
+  select(Insulin_2, HOMA_IR, Total_Cholesterol, Triglycerides, Apo_B,  # Clínicas
+         Height, Fat_Percentage_BI, Muscle_Mass_Percentage_BI, Lean_Mass_BI, BMI,  # Antropométricas
+         IL_1B, IL_6, CRP, TNF_a, PAI_1)  # Inflamatorias
+
+# Pearson matrix
+cor_matrix <- cor(selected_vars, method = "pearson", use = "complete.obs")   
+corrplot(cor_matrix, method = "circle", type = "upper", tl.col = "black", tl.srt = 45, title = "Pearson Correlation Matrix")
+melted_cor_matrix <- melt(cor_matrix)
+
+# Pearson correlation heatmap
+ggplot(data = melted_cor_matrix, aes(x=Var1, y=Var2, fill=value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 9, hjust = 1)) +
+  coord_fixed() +
+  labs(title = "Pearson Correlation Heatmap", x = "", y = "") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+
+```{r show_and_save_mirna_boxplots, fig.width=10, fig.height=12, message=FALSE, warning=FALSE}
+# Packages
+library(readxl)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(ggpubr)
+
+# File (place this .xlsx in the same folder as the Rmd, or set full path)
+file_path <- "Reorganized_BASE_miRNAs.xlsx"
+
+# Read data
+data <- read_excel(file_path)
+
+# Clean column names (removes trailing/leading spaces)
+colnames(data) <- str_trim(colnames(data))
+
+# Create group variable from IR (0/1)
+data <- data %>%
+  mutate(
+    Insulin_resistance = factor(
+      IR,
+      levels = c(0, 1),
+      labels = c("Insulin sensitivity", "Insulin resistance")
+    )
+  )
+
+# Auto-detect miRNA columns (hsa-*)
+mirna_cols <- colnames(data)[str_detect(colnames(data), "^hsa-")]
+
+# Colors + theme
+custom_colors <- c("Insulin sensitivity" = "#1f77b4",
+                   "Insulin resistance" = "#ff7f0e")
+
+theme_custom <- theme_pubr() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text = element_text(size = 10),
+    legend.position = "none"
+  )
+mirna_cols
+create_boxplot_mirna <- function(df, mirna_name, colors = custom_colors) {
+  y <- df[[mirna_name]]
+  y_max <- max(y, na.rm = TRUE)
+
+  # Robust limit (avoid failures if all zeros/NA)
+  y_lim <- ifelse(is.finite(y_max) && y_max > 0, y_max * 1.10, 1)
+
+  ggplot(df, aes(x = Insulin_resistance, y = .data[[mirna_name]], fill = Insulin_resistance)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(width = 0.2, alpha = 0.6, color = "black") +
+    stat_compare_means(
+      method = "wilcox.test",   # recommended for (often) non-normal counts
+      label = "p.signif",
+      label.x = 1.5,
+      label.y = y_lim * 0.95
+    ) +
+    labs(
+      title = mirna_name,
+      y = paste0(mirna_name, " (normalized counts)"),
+      fill = " "
+    ) +
+    scale_x_discrete(labels = c("Insulin sensitivity", "Insulin resistance")) +
+    scale_fill_manual(values = colors) +
+    coord_cartesian(ylim = c(0, y_lim)) +
+    theme_custom
+}
+mirna_plots <- lapply(mirna_cols, function(m) create_boxplot_mirna(data, m))
+names(mirna_plots) <- mirna_cols
+
+# Print all plots sequentially
+for (m in mirna_cols) {
+  print(mirna_plots[[m]])
+}
+ggarrange(plotlist = mirna_plots,
+          ncol = 2,
+          nrow = ceiling(length(mirna_plots) / 2))
+# Create folder to save plots
+dir.create("miRNA_boxplots", showWarnings = FALSE)
+
+# Save each plot as PNG
+for (m in mirna_cols) {
+  ggsave(
+    filename = file.path("miRNA_boxplots", paste0(gsub("[^A-Za-z0-9_-]", "_", m), ".png")),
+    plot = mirna_plots[[m]],
+    width = 5.5, height = 4.5, dpi = 300
+  )
+}
+
+# Save panel as PNG
+panel_plot <- ggarrange(plotlist = mirna_plots, ncol = 2, nrow = ceiling(length(mirna_plots)/2))
+ggsave("miRNA_boxplots_panel.png", panel_plot, width = 10, height = 12, dpi = 300)
+panel_plot
+```
