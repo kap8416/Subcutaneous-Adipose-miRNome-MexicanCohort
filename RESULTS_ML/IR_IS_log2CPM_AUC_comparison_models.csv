@@ -1,0 +1,5 @@
+"model","AUC"
+"miRNA_LASSO",0.6065
+"miRNA_RF",0.699109375
+"Clinical_LASSO",1
+"Integrated_LASSO",1
