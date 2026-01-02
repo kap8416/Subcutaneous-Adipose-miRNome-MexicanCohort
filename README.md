@@ -48,7 +48,7 @@ flowchart TD
 
     F --> I[Predictive Modeling]
     E --> I
-    H --> J[Network Metrics & Interaction Tables]
+    H --> J[Network Metrics & Interactions]
     I --> K[Model Performance & Classification Results]
 
     D --> L[HTML & Markdown Reports]
