@@ -85,11 +85,11 @@ Subcutaneous-Adipose-miRNome-MexicanCohort/
 │   └── Python script for miRNA–target regulatory
 │       network construction and analysis
 │
-├── Predictive_Modeling_*.Rmd
+├── miRNA_IR_IS_LASSO_RF_Bootstrap_.Rmd
 │   └── R Markdown scripts implementing supervised
 │       predictive modeling approaches
 │
-├── Predictive_Modeling_*.html
+├── miRNA_IR_IS_LASSO_RF_Bootstrap_.html
 │   └── Rendered HTML reports for predictive modeling analyses
 │
 └── README.md
