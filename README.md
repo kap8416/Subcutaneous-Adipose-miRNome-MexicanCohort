@@ -148,8 +148,8 @@ The final stage evaluates the predictive capacity of miRNA expression profiles, 
 
 **Scripts**
 - Predictive modeling scripts written in R:
-  - Markdown (`.Rmd`)
-  - HTML (`.html`)
+  - Markdown (`miRNA_IR_IS_LASSO_RF_Bootstrap_.Rmd`)
+  - HTML (`miRNA_IR_IS_LASSO_RF_Bootstrap_.html`)
 
 These scripts implement supervised machine learning models, cross-validation strategies, and performance evaluation metrics.
 
