@@ -69,6 +69,9 @@ Subcutaneous-Adipose-miRNome-MexicanCohort/
 ├── INPUTSmiRNAs-targetsNetworks/
 │   └── miRNA–target prediction datasets used for
 │       regulatory network reconstruction
+├── INPUTSML/
+│   └── datasets used for
+│       Machine learning predictive analysis
 │
 ├── OUTPUTSmiRNA-targetNets/
 │   └── Generated miRNA–target interaction networks,
