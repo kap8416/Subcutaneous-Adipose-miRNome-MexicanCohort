@@ -196,16 +196,15 @@ This repository is intended for researchers interested in:
 **Katia Aviña Padilla, PhD**  
 Computational Biology | Systems Omics | miRNA Regulation  
 Mexican Cohort Studies in Metabolic Health
-
 CINVESTAV
 katia.avinap@cinvestav.mx 
-
 J. Gabriel Juárez-Rojas 
 Iván Torre-Villalvazo 
 Luz G. Cervantes-Pérez 
 Elizabeth Pérez-Rodríguez 
-**Depto. Farmacología, INCICh.
-Depto. Fisiología de la Nutrición, INCMNSZ.**
+Depto. Farmacología, INCICh.
+Depto. Fisiología de la Nutrición, INCMNSZ.
+
 ---
 
 ## Citation
