@@ -211,5 +211,5 @@ Depto. Fisiología de la Nutrición, INCMNSZ.
 
 If you use this repository or its analytical framework, please cite it as:
 
-Aviña Padilla, K. (2025). *Subcutaneous Adipose miRNome – Mexican Cohort*. GitHub repository.  
+Aviña Padilla, K. (2025) et al. *Subcutaneous Adipose miRNome – Mexican Cohort*. GitHub repository.  
 https://github.com/kap8416/Subcutaneous-Adipose-miRNome-MexicanCohort
